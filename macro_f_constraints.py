@@ -1,0 +1,521 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 28 12:35:47 2026
+
+@author: zpicker
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import ticker
+import matplotlib.colors as colors
+import scipy.interpolate as interpolate
+
+class macro:
+    
+#####################initial functions#######################3
+
+    def __init__(self):
+
+        #useful values
+        # self.path = os.getcwd()
+        self.G = 4.3e-3 #pc Msun^-1 (km/s)^2
+        self.G2 = 6.67e-11 #m^3 kg^-1 s^-2
+        self.c = 299792 #km/s
+        self.msun = 1.9e33 #g
+        self.rho_DM_local = 0.01 #msun pc^-3
+        self.rho_DM2 = self.rho_DM_local*(self.pc2km(1)**-3) #msun km^-3
+        self.rho_DM_local2a = 0.4 #GeV cm^-3
+        self.rho_DM_local2 = self.rho_DM_local2a*(1.8e-24) #g cm^-3
+        self.mplanck = 1.22e19 #GeV
+        self.mp2 = self.mplanck/np.sqrt(8*np.pi)
+        
+        #specific plotting things
+        self.mmin=1e0
+        self.mmax=1e50
+        self.resm = 1000
+        self.marray = np.logspace(np.log10(self.mmin),np.log10(self.mmax),self.resm)
+        self.ress = 999
+        self.smin=1e-40
+        self.smax=1e20
+        self.sarray = np.logspace(np.log10(self.smin),np.log10(self.smax),self.ress)
+
+    #quick unit conversion functions
+    def pc2km(self,d):
+        return d*3.086e13
+    def s2yr(self,t):
+        return t*3.17e-8
+    def pc2cm(self,d):
+        return d*3.086e18
+    def gev2J(self,E):
+        return E*1.6e-10
+    def gev2gram(self,m):
+        return m*1.78e-24
+    def gev2erg(self,E):
+        return E*0.00160218
+    def au2pc(self,d):
+        return d*4.84814e-6
+    def au2km(self,d):
+        return d*1.496e8
+        
+############plotting functions#########################
+#some code graciously stolen from Ciaran O'Hare
+
+
+    def plotting(self):
+
+        plt.style.use('sty.mplstyle')
+    
+        fig, ax = plt.subplots()
+        ax.tick_params(labelsize=24)
+            # Finishing touches
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        ax.set_xlim([self.mmin,self.mmax])
+        ax.set_ylim([self.smin,self.smax])
+        ax.set_xlabel('Dark matter mass [GeV/$c^2$]')
+        ax.set_ylabel(r'Geometric cross section [cm$^{2}$]')
+    
+        ax.yaxis.set_major_locator(ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
+        ax.yaxis.set_minor_locator(ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
+        ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+        ax.xaxis.set_major_locator(ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
+        ax.xaxis.set_minor_locator(ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
+        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+        # ax.axvline(1.22e19,color='gray',linestyle='-',zorder=-100,lw=2)
+        # ax.text(1.22e19*1.05,1e-28,r'$M_{\rm Pl}$',fontsize=20,ha='left',va='center',color='gray')
+        self.UpperAxis_grams(ax)
+        self.UpperAxis_Msun(ax)
+        
+        #earth interactions
+        km2pc=3.24078e-14
+        rho_dm=0.01#msun pc^-3
+        r_earth=6378#km
+        v_dm=220#km/s
+        msun = 2e33 #g
+        g2GeV = 1/(1.8e-24)
+        Rate_array = np.array([1,1/3.15e7,1e-9/3.15e7]) #s^-1
+        m_array = rho_dm*np.pi*(r_earth**2)*v_dm*(km2pc**3)*msun*g2GeV/Rate_array #GeV
+        plt.vlines(m_array,self.smin*1000,self.smin,colors=['black','black','black','white'],linestyles='solid',linewidth=2,alpha=1)
+        plt.text(2*m_array[0],self.smin*5,r'1/s',rotation=0)
+        plt.text(2*m_array[1],self.smin*5,r'1/yr',rotation=0)
+        plt.text(2*m_array[2],self.smin*5,r'1/Gyr',rotation=0,color='black')  
+        return fig,ax
+    
+    def MySquarePlot(self,xlab='',ylab='',title='',\
+                      lw=2.5,lfs=35,tfs=25,size_x=13,size_y=12,Grid=False):
+         plt.rcParams['axes.linewidth'] = lw
+         plt.rcParams['mathtext.fontset'] = 'dejavuserif'
+         plt.rcParams['lines.linewidth'] = 3
+         # plt.rc('text', usetex=True)
+         plt.rc('font', family='serif',size=tfs)
+         # plt.rcParams['text.latex.preamble'] = [r'\usepackage{mathpazo}']
+         fig = plt.figure(figsize=(size_x,size_y))
+         ax = fig.add_subplot(111)
+         ax.set_xlabel(xlab,fontsize=lfs,labelpad=25)
+         ax.set_ylabel(ylab,fontsize=lfs,labelpad=25)
+         ax.set_title(title,pad=20)
+         ax.tick_params(which='major',direction='in',width=2,length=13,right=False,top=True,pad=7)
+         ax.tick_params(which='minor',direction='in',width=1,length=10,right=True,top=True)
+         if Grid:
+             ax.grid()
+         return fig,ax
+     
+    def MyVertPlots(self,xlab='',ylab='',title='',\
+                      lw=2.5,lfs=35,tfs=25,size_x=13,size_y=12,Grid=False,number=2):
+         plt.rcParams['axes.linewidth'] = lw
+         plt.rcParams['mathtext.fontset'] = 'dejavuserif'
+         plt.rcParams['lines.linewidth'] = 3
+         # plt.rc('text', usetex=True)
+         plt.rc('font', family='serif',size=tfs)
+         # plt.rcParams['text.latex.preamble'] = [r'\usepackage{mathpazo}']
+         fig = plt.figure(figsize=(size_x,size_y))
+         gs = fig.add_gridspec(number,hspace=0)
+         ax = gs.subplots(sharex=True, sharey=True)
+         ax[2].set_xlabel(xlab,fontsize=lfs,labelpad=25)
+         for i in np.arange(number):
+             ax[i].set_ylabel(ylab,fontsize=lfs,labelpad=25)
+             ax[i].tick_params(which='major',direction='in',width=2,length=13,right=False,top=True,pad=7)
+             ax[i].tick_params(which='minor',direction='in',width=1,length=10,right=True,top=True)
+         if Grid:
+             ax.grid()
+         return fig,ax
+
+    def densities(self,ax):
+        # Ice
+        rho = .92/(1.8e-24) #GeV cm^-3
+        m = np.array([1e0,1e50]) #g
+        sigma_ice = np.pi*((3/(4*np.pi))*(m/rho))**(2/3)
+        l1 = ax.plot(m,sigma_ice,color='steelblue',alpha=1,linestyle='dashed',linewidth=4,label='Ice')
+    
+        # Nuclear density
+        rho = 2.8e14/(1.8e-24) #GeV cm^-3
+        sigma_nuclear = np.pi*((3/(4*np.pi))*(m/rho))**(2/3)
+        l2 = ax.plot(m,sigma_nuclear,color='midnightblue',linestyle='dashed',alpha=1,linewidth=4,label='Nuclear')
+
+    def UpperAxis_Msun(self,ax,tickdir='in',xtick_rotation=0,labelsize=19,xlabel=None,lfs=40,tick_pad=-40,tfs=25,xlabel_pad=10,label_shift=[1,1]):
+        m_min,m_max = ax.get_xlim()
+        GeV_2_g = 1/5.62e23 # convert GeV to grams
+        g_2_Msun = 1/2e33
+        ax2 = ax.twiny()
+        ax2.set_xscale('log')
+        ax2.set_xlabel(xlabel,fontsize=lfs,labelpad=xlabel_pad)
+        ax2.tick_params(which='major',direction=tickdir,width=2.5,length=13,pad=tick_pad,rotation=xtick_rotation,labelsize=labelsize)
+        ax2.tick_params(which='minor',direction=tickdir,width=1,length=10)
+
+        #ax2.xaxis.set_major_locator(matplotlib.ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
+        #ax2.xaxis.set_minor_locator(matplotlib.ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
+
+        ax2.set_xticks(10.0**np.arange(-33,-6,3))
+        #ax2.set_xticklabels(['ag','fg','pg','ng',r'\textmu g','mg','g','kg','Mg','Gg','Tg','Pg']);
+        ax2.set_xticks(10.0**np.arange(-18,-6-2,1), minor=True)
+        ax2.xaxis.set_minor_formatter(ticker.NullFormatter())
+        ax2.set_xlim([m_min*GeV_2_g*g_2_Msun,m_max*GeV_2_g*g_2_Msun])
+        ax2.text(1e-33/100*label_shift[0],ax2.get_ylim()[1]/25*label_shift[1],r'$M_\odot:$',ha='right',fontsize=labelsize)
+        plt.sca(ax)
+        return
+    def UpperAxis_grams(self,ax,tickdir='out',xtick_rotation=0,labelsize=25,xlabel=None,lfs=40,tick_pad=8,tfs=25,xlabel_pad=10):
+        m_min,m_max = ax.get_xlim()
+        GeV_2_g = 1/5.62e23 # convert GeV to grams
+        ax2 = ax.twiny()
+        ax2.set_xscale('log')
+        ax2.set_xlabel(xlabel,fontsize=lfs,labelpad=xlabel_pad)
+        ax2.tick_params(labelsize=tfs)
+        ax2.tick_params(which='major',direction=tickdir,width=2.5,length=13,pad=tick_pad)
+        ax2.tick_params(which='minor',direction=tickdir,width=1,length=10)
+    
+        #ax2.xaxis.set_major_locator(matplotlib.ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
+        #ax2.xaxis.set_minor_locator(matplotlib.ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
+    
+        ax2.set_xticks(10.0**np.arange(-18,18,3))
+        ax2.set_xticklabels(['ag','fg','pg','ng',r'\textmu g','mg','g','kg','Mg','Gg','Tg','Pg']);
+        ax2.set_xticks(10.0**np.arange(-18,18-2,1), minor=True)
+        ax2.xaxis.set_minor_formatter(ticker.NullFormatter())
+        ax2.set_xlim([m_min*GeV_2_g,m_max*GeV_2_g])
+        plt.sca(ax)
+        return
+    
+
+###############individual constraints################################
+
+    def resize(self,m,sig,mask):
+        mask[mask == 0] = 99
+        func = interpolate.RectBivariateSpline(np.log10(sig),np.log10(m),np.log10(mask))
+        out = 10**func(np.log10(self.sarray),np.log10(self.marray))
+        return out
+
+    def asteroid(self,out=0):
+        m = np.logspace(24,40,1000)
+        sig = np.logspace(-4,12,999)
+        mask = np.load('macro_constraints/asteroid.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask
+        
+    def saturn(self,out=0):
+        m = np.logspace(12,30,1000)
+        sig = np.logspace(-12,6,999)
+        mask = np.load('macro_constraints/saturn.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask
+    
+    def skylab(self,out=0):
+        m = np.load('macro_constraints/skylab_masses.npy')
+        sig = np.load('macro_constraints/skylab_sigmas.npy')
+        mask = np.load('macro_constraints/skylab_logFraction.npy')
+        mask2 = self.resize(m,sig,10**mask.T)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,10**mask.T
+    
+    def ohya(self,out=0):
+        m = np.load('macro_constraints/ohya_masses.npy')
+        sig = np.load('macro_constraints/ohya_sigmas.npy')
+        mask = np.load('macro_constraints/ohya_logFraction.npy')
+        mask2 = self.resize(m,sig,10**mask.T)
+        if out==0:  
+            return mask2
+        elif out==1:
+            return m,sig,10**mask.T
+    
+    def SN(self,out=0):
+        sig = np.flip(np.logspace(6,-3,101)**2*np.pi)
+        m = np.logspace(1,25,101)/self.gev2gram(1)
+        mask = np.flip(np.load('macro_constraints/SN.npy'),axis=0).real
+        mask[mask==0]=99
+        mask2 = self.resize(m,sig,mask)
+        if out==0:  
+            return mask2
+        elif out==1:
+            return m,sig,mask
+        
+    def WD(self,out=0):
+        sig = np.flip(np.logspace(4,-2.5,101)**2*np.pi)
+        m = np.logspace(2,21,101)/self.gev2gram(1)
+        mask = np.flip(np.load('macro_constraints/WD1CO.npy'),axis=0).real
+        mask[mask==0]=99
+        mask2 = self.resize(m,sig,mask)
+        if out==0:  
+            return mask2
+        elif out==1:
+            return m,sig,mask
+    
+    def fireballs(self,out=0):
+        m = np.logspace(24,31,1000)
+        sig = np.logspace(-6,4,999)
+        mask = np.load('macro_constraints/fireballs.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask
+        
+    def mica(self,out=0):
+        data = np.load('macro_constraints/mica.npz')
+        m = 10**data['log_masses']
+        sig = 10**data['log_sigmas']
+        N=data['N_events']
+        N[N==0]=1/99
+        mask = data['Nc']/N
+        mask[mask>1]=99
+        mask[-1,:]=99
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask
+        
+    def xenon(self,out=0):
+        m = np.logspace(0,16,1000)
+        sig = np.logspace(-40,-22,999)
+        mask = np.load('macro_constraints/xenon.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask
+        
+    def deap(self,out=0):
+        m = np.logspace(6,20,1000)
+        sig = np.logspace(-24,-17,999)
+        mask = np.load('macro_constraints/deap.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask
+        
+    def gas(self,out=0):
+        m = np.logspace(-6,51,1000)
+        sig = np.logspace(-28,30,999)
+        mask = np.load('macro_constraints/gas.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask        
+        
+    def HSC(self,out=0):
+        m = np.logspace(45,55,100)
+        sig = np.logspace(-9,22,99)
+        mask = np.load('macro_constraints/HSC26.npy')
+        mask2 = self.resize(m,sig,mask)
+        if out==0:
+            return mask2
+        elif out==1:
+            return m,sig,mask      
+
+
+    def all_constraints(self,lines=0,text=0): #call everything
+    
+        fig,ax = self.plotting()
+        self.densities(ax)
+        
+        #Direct detection region, for constraints not converted to f_DM yet
+        dd = np.load('macro_constraints/DD.npy')
+        ax.fill(dd[:,0],dd[:,1],color='lightgrey')
+        
+        
+        #load files
+        ast = self.asteroid()
+        sat = self.saturn()
+        sky = self.skylab()
+        ohya = self.ohya()
+        fire = self.fireballs()
+        sn = self.SN()
+        wd = self.WD()
+        mica = self.mica()
+        xenon = self.xenon()
+        deap = self.deap()
+        gas = self.gas()
+        hsc = self.HSC()
+
+        alist = [ast,sat,sky,ohya,fire,sn,wd,mica,xenon,deap,gas,hsc]
+
+        allconstraints = np.min(alist, axis=0)
+            
+        cmap = plt.get_cmap('viridis').copy()
+        color=(0,0,0,0)
+        cmap.set_over(color)
+        cmap.set_under(color)
+
+        plot = ax.pcolormesh(self.marray,self.sarray,allconstraints,cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=1e-22))
+        fig.colorbar(plot, ax=ax,label=r'$f_{\mathrm{DM}}$')
+        ax.contourf(self.marray,self.sarray,gas,cmap='Greys',levels=[1e-50,.9e-21])
+
+
+        if lines==0:
+            style = 'dashed'
+        # lines around constraints
+            ax.contour(self.marray,self.sarray,ast,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,sat,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,sky,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,ohya,levels=[1],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,fire,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,sn,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,wd,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,mica,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,xenon,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,deap,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,gas,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,hsc,levels=[2],linewidths=3,linestyles=style,colors='black')
+
+        if text==0:
+            ax.text(1e25,1e6,r'Asteroids',fontsize=24,rotation=28)
+            ax.text(1e15,1e-1,r'Saturn',fontsize=24,rotation=28)
+            ax.text(1e7,2e-15,r'Skylab',fontsize=24,rotation=40)
+            ax.text(7e18,2e-21,r'Ohya',fontsize=24,rotation=0)
+            ax.text(1e26,1e-6,r'Fireballs',fontsize=24,rotation=0)
+            ax.text(1e36,1e-6,r'Supernovae',fontsize=24,rotation=0)
+            ax.text(1e39,1e-3,r'1CO',fontsize=24,rotation=0)
+            ax.text(1e27,1e-16,r'Mica',fontsize=24,rotation=0)
+            ax.text(1e3,1e-39,r'Xenon1T',fontsize=24,rotation=36)
+            ax.text(2e16,5e-26,r'DEAP3600',fontsize=24,rotation=0)
+            ax.text(1e6,.5e2,'Gas clouds',fontsize=24,rotation=36)
+            ax.text(3e47,3e8,'HSC',fontsize=24,rotation=90)
+
+        #sub- black hole density region
+        m = np.array([1e2,1e50])
+        GeV_2_g = 1/5.62e23 
+        sigma_BH = np.pi*(100*2*6.67e-11*m*GeV_2_g*1e-3/3e8**2)**2
+        ax.plot(m,sigma_BH,color='black',alpha=1,linewidth=4)
+
+        ax.fill_between(m,sigma_BH,[self.smin,self.smin],facecolor='black',hatch='.',edgecolor='dimgrey',alpha=1,label='Black holes')
+        plt.legend(loc=4,fontsize=24,facecolor='white',frameon=True)
+
+####################fixed density bounds######################
+
+    #little function to findest closest value in array
+    def find_closest(self,arr, val):
+           idx = np.abs(arr - val).argmin()
+           return idx  
+       
+    def linevalues(self,density,constraint,smoothing=0): #g cm^{-3}
+        m,sig,f2d = constraint(out=1)
+        rho = density/self.gev2gram(1) #GeV cm^-3
+        yarr = np.pi*((3/(4*np.pi))*(m/rho))**(2/3)
+        values=np.zeros(len(yarr))
+        for i,y in enumerate(yarr):
+            yind = self.find_closest(sig,y)
+            values[i] = f2d[yind,i]
+            if values[i]>10:
+                values[i]*=(np.random.rand()+1)
+        if smoothing==0:
+            midinds = self.mids(values)
+            m = m[midinds]
+            values=values[midinds]
+        return m, values
+    
+    def mids(self,arr):
+        changes = np.concatenate(([True], arr[:-1] != arr[1:], [True]))
+        boundaries = np.where(changes)[0]
+        middle_indices = []
+        for i in range(len(boundaries) - 1):
+            start = boundaries[i]
+            end = boundaries[i + 1]
+            middle = (start + end - 1) // 2
+            middle_indices.append(middle)
+        return np.array(middle_indices)
+
+    def fplot(self,density,ax):
+
+        ax.set_ylim([1e-10,2])
+        ax.text(1e35,5e-10,r'$\rho_{\chi}=$ '+f"{density:.0E}"+' g/cm$^3$',fontsize=24,color='black')
+
+        alph=0.3
+        
+        m,values = self.linevalues(density,self.gas)
+        ax.loglog(m,values,color='purple',linewidth=4,label='Gas Clouds')
+        ax.fill_between(m,values,2,color='purple',alpha=alph)
+        
+        m,values = self.linevalues(density,self.asteroid)
+        ax.loglog(m,values,color='lightcoral',linewidth=4,label='Asteroids')
+        ax.fill_between(m,values,2,color='lightcoral',alpha=alph)
+        
+        m,values = self.linevalues(density,self.saturn)
+        ax.loglog(m,values,color='orange',linewidth=4,label='Saturn')
+        ax.fill_between(m,values,2,color='orange',alpha=alph)
+        
+        m,values = self.linevalues(density,self.fireballs)
+        ax.loglog(m,values,color='red',linewidth=4,label='Fireballs')
+        ax.fill_between(m,values,2,color='red',alpha=alph)
+
+        m,values = self.linevalues(density,self.ohya)
+        ax.loglog(m,values,color='blue',linewidth=4,label='Ohya')
+        ax.fill_between(m,values,2,color='blue',alpha=alph)
+        
+        m,values = self.linevalues(density,self.skylab)
+        ax.loglog(m,values,color='lightblue',linewidth=4,label='Skylab')
+        ax.fill_between(m,values,2,color='lightblue',alpha=alph)
+
+        m,values = self.linevalues(density,self.mica)
+        ax.loglog(m,values,color='darkblue',linewidth=4,label='mica')
+        ax.fill_between(m,values,2,color='darkblue',alpha=alph)
+           
+        m,values = self.linevalues(density,self.xenon)
+        ax.loglog(m,values,color='green',linewidth=4,label='Xenon100')
+        ax.fill_between(m,values,2,color='green',alpha=alph)
+
+        m,values = self.linevalues(density,self.deap)
+        ax.loglog(m,values,color='darkgreen',linewidth=4,label='DEAP3600')
+        ax.fill_between(m,values,2,color='darkgreen',alpha=alph)
+
+        m,values = self.linevalues(density,self.SN)
+        ax.loglog(m,values,color='black',linewidth=4,label='Supernovae')
+        ax.fill_between(m,values,2,color='black',alpha=alph)
+
+        m,values = self.linevalues(density,self.WD)
+        ax.loglog(m,values,color='grey',linewidth=4,label='WD1CO')
+        ax.fill_between(m,values,2,color='grey',alpha=alph)
+
+        m,values = self.linevalues(density,self.HSC)
+        ax.loglog(m,values,color='teal',linewidth=4,label='HSC')
+        ax.fill_between(m,values,2,color='teal',alpha=alph)
+
+        ax.set_xlim(1e0,1e50)
+    def all_densities(self):
+        xlab = r'Dark matter mass $[\mathrm{GeV}/c^2]$'
+        ylab = r'$f_{\mathrm{DM}}$'
+        dlist = [1e1,1e7,1e14]
+        fig,ax=self.MyVertPlots(xlab,ylab,size_y=14,number=len(dlist))
+        for i,d in enumerate(dlist):
+            self.fplot(d,ax[i])
+            
+        self.UpperAxis_grams(ax[0])
+        self.UpperAxis_Msun(ax[0])
+        ax[0].legend(fontsize=20,loc='center left', bbox_to_anchor=(1, 0.2))
+
+
+        
+
+                
+#%%
+a = macro()
+
