@@ -11,27 +11,13 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 import matplotlib.colors as colors
 import scipy.interpolate as interpolate
+import scipy.integrate as integrate
 
 class macro:
     
-#####################initial functions#######################3
+    #####################initial functions#######################3
 
     def __init__(self):
-
-        #useful values
-        # self.path = os.getcwd()
-        self.G = 4.3e-3 #pc Msun^-1 (km/s)^2
-        self.G2 = 6.67e-11 #m^3 kg^-1 s^-2
-        self.c = 299792 #km/s
-        self.msun = 1.9e33 #g
-        self.rho_DM_local = 0.01 #msun pc^-3
-        self.rho_DM2 = self.rho_DM_local*(self.pc2km(1)**-3) #msun km^-3
-        self.rho_DM_local2a = 0.4 #GeV cm^-3
-        self.rho_DM_local2 = self.rho_DM_local2a*(1.8e-24) #g cm^-3
-        self.mplanck = 1.22e19 #GeV
-        self.mp2 = self.mplanck/np.sqrt(8*np.pi)
-        
-        #specific plotting things
         self.mmin=1e0
         self.mmax=1e50
         self.resm = 1000
@@ -40,33 +26,19 @@ class macro:
         self.smin=1e-40
         self.smax=1e20
         self.sarray = np.logspace(np.log10(self.smin),np.log10(self.smax),self.ress)
-
-    #quick unit conversion functions
-    def pc2km(self,d):
-        return d*3.086e13
-    def s2yr(self,t):
-        return t*3.17e-8
-    def pc2cm(self,d):
-        return d*3.086e18
-    def gev2J(self,E):
-        return E*1.6e-10
+        self.clist = [self.asteroid,self.saturn,self.skylab,self.ohya,
+                      self.fireballs,self.WD,self.mica,self.xenon,
+                      self.deap,self.gas,self.HSC]
+        
     def gev2gram(self,m):
         return m*1.78e-24
-    def gev2erg(self,E):
-        return E*0.00160218
-    def au2pc(self,d):
-        return d*4.84814e-6
-    def au2km(self,d):
-        return d*1.496e8
         
-############plotting functions#########################
-#some code graciously stolen from Ciaran O'Hare
+    ############ plotting functions #########################
+    #some code graciously stolen from Ciaran O'Hare
 
-
+    ### base function for creating the matplotlib figure/axes
     def plotting(self):
-
         plt.style.use('sty.mplstyle')
-    
         fig, ax = plt.subplots()
         ax.tick_params(labelsize=24)
             # Finishing touches
@@ -76,7 +48,6 @@ class macro:
         ax.set_ylim([self.smin,self.smax])
         ax.set_xlabel('Dark matter mass [GeV/$c^2$]')
         ax.set_ylabel(r'Geometric cross section [cm$^{2}$]')
-    
         ax.yaxis.set_major_locator(ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
         ax.yaxis.set_minor_locator(ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
         ax.yaxis.set_minor_formatter(ticker.NullFormatter())
@@ -98,50 +69,44 @@ class macro:
         Rate_array = np.array([1,1/3.15e7,1e-9/3.15e7]) #s^-1
         m_array = rho_dm*np.pi*(r_earth**2)*v_dm*(km2pc**3)*msun*g2GeV/Rate_array #GeV
         plt.vlines(m_array,self.smin*1000,self.smin,colors=['black','black','black','white'],linestyles='solid',linewidth=2,alpha=1)
-        plt.text(2*m_array[0],self.smin*5,r'1/s',rotation=0)
-        plt.text(2*m_array[1],self.smin*5,r'1/yr',rotation=0)
-        plt.text(2*m_array[2],self.smin*5,r'1/Gyr',rotation=0,color='black')  
+        ###### uncomment for ticks on bottom axes indicating the rate of collisions with earth
+        # plt.text(2*m_array[0],self.smin*5,r'1/s',rotation=0)
+        # plt.text(2*m_array[1],self.smin*5,r'1/yr',rotation=0)
+        # plt.text(2*m_array[2],self.smin*5,r'1/Gyr',rotation=0,color='black')  
         return fig,ax
     
+    #quick square plotting function
     def MySquarePlot(self,xlab='',ylab='',title='',\
                       lw=2.5,lfs=35,tfs=25,size_x=13,size_y=12,Grid=False):
-         plt.rcParams['axes.linewidth'] = lw
-         plt.rcParams['mathtext.fontset'] = 'dejavuserif'
-         plt.rcParams['lines.linewidth'] = 3
-         # plt.rc('text', usetex=True)
-         plt.rc('font', family='serif',size=tfs)
-         # plt.rcParams['text.latex.preamble'] = [r'\usepackage{mathpazo}']
+         plt.style.use('sty.mplstyle')
          fig = plt.figure(figsize=(size_x,size_y))
          ax = fig.add_subplot(111)
-         ax.set_xlabel(xlab,fontsize=lfs,labelpad=25)
-         ax.set_ylabel(ylab,fontsize=lfs,labelpad=25)
+         ax.set_xlabel(xlab,fontsize=lfs,labelpad=15)
+         ax.set_ylabel(ylab,fontsize=lfs,labelpad=15)
          ax.set_title(title,pad=20)
-         ax.tick_params(which='major',direction='in',width=2,length=13,right=False,top=True,pad=7)
+         ax.tick_params(which='major',direction='in',width=2,length=13,right=False,top=True,pad=12)
          ax.tick_params(which='minor',direction='in',width=1,length=10,right=True,top=True)
          if Grid:
              ax.grid()
          return fig,ax
      
+    #creates a number of plots in vertical formation
     def MyVertPlots(self,xlab='',ylab='',title='',\
                       lw=2.5,lfs=35,tfs=25,size_x=13,size_y=12,Grid=False,number=2):
-         plt.rcParams['axes.linewidth'] = lw
-         plt.rcParams['mathtext.fontset'] = 'dejavuserif'
-         plt.rcParams['lines.linewidth'] = 3
-         # plt.rc('text', usetex=True)
-         plt.rc('font', family='serif',size=tfs)
-         # plt.rcParams['text.latex.preamble'] = [r'\usepackage{mathpazo}']
+         plt.style.use('sty.mplstyle')
          fig = plt.figure(figsize=(size_x,size_y))
          gs = fig.add_gridspec(number,hspace=0)
          ax = gs.subplots(sharex=True, sharey=True)
-         ax[2].set_xlabel(xlab,fontsize=lfs,labelpad=25)
+         ax[2].set_xlabel(xlab,fontsize=lfs,labelpad=15)
          for i in np.arange(number):
-             ax[i].set_ylabel(ylab,fontsize=lfs,labelpad=25)
-             ax[i].tick_params(which='major',direction='in',width=2,length=13,right=False,top=True,pad=7)
+             ax[i].set_ylabel(ylab,fontsize=lfs,labelpad=15)
+             ax[i].tick_params(which='major',direction='in',width=2,length=13,right=True,top=True,pad=12)
              ax[i].tick_params(which='minor',direction='in',width=1,length=10,right=True,top=True)
          if Grid:
              ax.grid()
          return fig,ax
 
+    #plots density bands on final figure
     def densities(self,ax):
         # Ice
         rho = .92/(1.8e-24) #GeV cm^-3
@@ -154,7 +119,8 @@ class macro:
         sigma_nuclear = np.pi*((3/(4*np.pi))*(m/rho))**(2/3)
         l2 = ax.plot(m,sigma_nuclear,color='midnightblue',linestyle='dashed',alpha=1,linewidth=4,label='Nuclear')
 
-    def UpperAxis_Msun(self,ax,tickdir='in',xtick_rotation=0,labelsize=19,xlabel=None,lfs=40,tick_pad=-40,tfs=25,xlabel_pad=10,label_shift=[1,1]):
+    #adds solar mass ticks to upper axis
+    def UpperAxis_Msun(self,ax,tickdir='in',xtick_rotation=0,labelsize=19,xlabel=None,lfs=40,tick_pad=-40,tfs=25,xlabel_pad=10,label_shift=[1,1],mfact=1):
         m_min,m_max = ax.get_xlim()
         GeV_2_g = 1/5.62e23 # convert GeV to grams
         g_2_Msun = 1/2e33
@@ -163,18 +129,15 @@ class macro:
         ax2.set_xlabel(xlabel,fontsize=lfs,labelpad=xlabel_pad)
         ax2.tick_params(which='major',direction=tickdir,width=2.5,length=13,pad=tick_pad,rotation=xtick_rotation,labelsize=labelsize)
         ax2.tick_params(which='minor',direction=tickdir,width=1,length=10)
-
-        #ax2.xaxis.set_major_locator(matplotlib.ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
-        #ax2.xaxis.set_minor_locator(matplotlib.ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
-
-        ax2.set_xticks(10.0**np.arange(-33,-6,3))
-        #ax2.set_xticklabels(['ag','fg','pg','ng',r'\textmu g','mg','g','kg','Mg','Gg','Tg','Pg']);
+        ax2.set_xticks(10.0**np.arange(-33,-6,3)) #not sure why this line has to stay...
         ax2.set_xticks(10.0**np.arange(-18,-6-2,1), minor=True)
         ax2.xaxis.set_minor_formatter(ticker.NullFormatter())
         ax2.set_xlim([m_min*GeV_2_g*g_2_Msun,m_max*GeV_2_g*g_2_Msun])
-        ax2.text(1e-33/100*label_shift[0],ax2.get_ylim()[1]/25*label_shift[1],r'$M_\odot:$',ha='right',fontsize=labelsize)
+        ax2.text(1e-33/100*label_shift[0],ax2.get_ylim()[1]/(label_shift[1]*3e3*mfact),r'$M_\odot:$',ha='right',fontsize=labelsize)
         plt.sca(ax)
         return
+    
+    #adds gram ticks to upper axis
     def UpperAxis_grams(self,ax,tickdir='out',xtick_rotation=0,labelsize=25,xlabel=None,lfs=40,tick_pad=8,tfs=25,xlabel_pad=10):
         m_min,m_max = ax.get_xlim()
         GeV_2_g = 1/5.62e23 # convert GeV to grams
@@ -183,11 +146,7 @@ class macro:
         ax2.set_xlabel(xlabel,fontsize=lfs,labelpad=xlabel_pad)
         ax2.tick_params(labelsize=tfs)
         ax2.tick_params(which='major',direction=tickdir,width=2.5,length=13,pad=tick_pad)
-        ax2.tick_params(which='minor',direction=tickdir,width=1,length=10)
-    
-        #ax2.xaxis.set_major_locator(matplotlib.ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
-        #ax2.xaxis.set_minor_locator(matplotlib.ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
-    
+        ax2.tick_params(which='minor',direction=tickdir,width=1,length=10)    
         ax2.set_xticks(10.0**np.arange(-18,18,3))
         ax2.set_xticklabels(['ag','fg','pg','ng',r'\textmu g','mg','g','kg','Mg','Gg','Tg','Pg']);
         ax2.set_xticks(10.0**np.arange(-18,18-2,1), minor=True)
@@ -195,9 +154,296 @@ class macro:
         ax2.set_xlim([m_min*GeV_2_g,m_max*GeV_2_g])
         plt.sca(ax)
         return
-    
 
-###############individual constraints################################
+    #main function for actually plotting full constraints
+    def plot_constraints(self,lines=0,text=0): #call everything
+    
+        fig,ax = self.plotting()
+        self.densities(ax)
+        
+        #Direct detection region, for constraints not converted to f_DM yet
+        dd = np.load('macro_constraints/DD.npy')
+        ax.fill(dd[:,0],dd[:,1],color='lightgrey')
+        
+        #load data in
+        ast = self.asteroid()
+        sat = self.saturn()
+        sky = self.skylab()
+        ohya = self.ohya()
+        fire = self.fireballs()
+        # sn = self.SN()
+        wd = self.WD()
+        mica = self.mica()
+        xenon = self.xenon()
+        deap = self.deap()
+        gas = self.gas()
+        hsc = self.HSC()
+
+        alist = [ast,sat,sky,ohya,fire,wd,mica,xenon,deap,gas,hsc]
+        allconstraints = np.min(alist,axis=0)            
+        cmap = plt.get_cmap('viridis').copy()
+        color=(0,0,0,0)
+        cmap.set_over(color)
+        cmap.set_under(color)
+
+        plot = ax.pcolormesh(self.marray,self.sarray,allconstraints,cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=1e-22))
+        fig.colorbar(plot, ax=ax,label=r'$f_{\mathrm{DM}}$')
+        ax.contourf(self.marray,self.sarray,gas,cmap='Greys',levels=[1e-50,.9e-21])
+
+        ### lines around constraints:
+        if lines==0:
+            style = 'dotted'
+            ax.contour(self.marray,self.sarray,ast,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,sat,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,sky,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,ohya,levels=[1],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,fire,levels=[2],linewidths=3,linestyles=style,colors='black')
+            # ax.contour(self.marray,self.sarray,sn,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,wd,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,mica,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,xenon,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,deap,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,gas,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,hsc,levels=[2],linewidths=3,linestyles=style,colors='black')
+
+        ### text labels on constraints:
+        if text==0:
+            ax.text(1e25,1e6,r'Asteroids',fontsize=24,rotation=28)
+            ax.text(1e15,1e-1,r'Saturn',fontsize=24,rotation=28)
+            ax.text(1e7,2e-15,r'Skylab',fontsize=24,rotation=40)
+            ax.text(7e18,2e-21,r'Ohya',fontsize=24,rotation=0)
+            ax.text(1e26,1e-6,r'Fireballs',fontsize=24,rotation=0)
+            # ax.text(1e36,1e-6,r'Supernovae',fontsize=24,rotation=0)
+            ax.text(1e39,1e-3,r'1CO',fontsize=24,rotation=0)
+            ax.text(1e27,1e-16,r'Mica',fontsize=24,rotation=0)
+            ax.text(1e3,1e-39,r'Xenon1T',fontsize=24,rotation=36)
+            ax.text(2e16,5e-26,r'DEAP3600',fontsize=24,rotation=0)
+            ax.text(1e6,.5e2,'Gas clouds',fontsize=24,rotation=36)
+            ax.text(3e47,3e8,'HSC',fontsize=24,rotation=90)
+
+        #black hole density region
+        m = np.array([1e2,1e50])
+        GeV_2_g = 1/5.62e23 
+        sigma_BH = np.pi*(100*2*6.67e-11*m*GeV_2_g*1e-3/3e8**2)**2
+        ax.plot(m,sigma_BH,color='black',alpha=1,linewidth=4)
+        ax.fill_between(m,sigma_BH,[self.smin,self.smin],facecolor='black',hatch='.',edgecolor='dimgrey',alpha=1,label='Black holes')
+        plt.legend(loc=4,fontsize=24,facecolor='white',frameon=True)
+
+    #################### contour bounds ######################
+
+    #little function to findest closest value in array
+    def find_closest(self,arr, val):
+           idx = np.abs(arr - val).argmin()
+           return idx  
+      
+    #define your mass-cross-section relation in here. input is mass array and list of parameters
+    #output is density array
+    #basic density function already included
+    def cross_section_func(self,marray,parameters):
+        
+        #basic density:
+        density = parameters[0]
+        rho = density/self.gev2gram(1) #GeV cm^-3
+        sigma_out = np.pi*((3/(4*np.pi))*(marray/rho))**(2/3)
+
+        return sigma_out
+       
+    #returns f values along the contour
+    def linevalues(self,parameters,constraint,smoothing=0): #g cm^{-3}
+        m,sig,f2d = constraint(out=1)
+        yarr = self.cross_section_func(m,parameters)
+        values=np.zeros(len(yarr))
+        for i,y in enumerate(yarr):
+            yind = self.find_closest(sig,y)
+            values[i] = f2d[yind,i]
+            if values[i]>10:
+                values[i]*=(np.random.rand()+1)*1e10
+        if smoothing==0:
+            midinds = self.mids(values)
+            m = m[midinds]
+            values=values[midinds]
+        return m, values
+    
+    #calculates the midpoints of straight sections (artefact of sampling) to use for plotting smooth lines
+    def mids(self,arr):
+        changes = np.concatenate(([True], arr[:-1] != arr[1:], [True]))
+        boundaries = np.where(changes)[0]
+        middle_indices = []
+        for i in range(len(boundaries) - 1):
+            start = boundaries[i]
+            end = boundaries[i + 1]
+            middle = (start + end - 1) // 2
+            middle_indices.append(middle)
+        return np.array(middle_indices)
+
+    #main plotting function for constraints along contour
+    def fplot(self,parameters,ax):
+
+        ax.set_ylim([1e-10,2])        
+        alph=0.3
+        
+        m,values = self.linevalues(parameters,self.gas)
+        ax.loglog(m,values,color='purple',linewidth=4,label='Gas Clouds')
+        ax.fill_between(m,values,2,color='purple',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.asteroid)
+        ax.loglog(m,values,color='lightcoral',linewidth=4,label='Asteroids')
+        ax.fill_between(m,values,2,color='lightcoral',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.saturn)
+        ax.loglog(m,values,color='orange',linewidth=4,label='Saturn')
+        ax.fill_between(m,values,2,color='orange',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.fireballs)
+        ax.loglog(m,values,color='red',linewidth=4,label='Fireballs')
+        ax.fill_between(m,values,2,color='red',alpha=alph)
+
+        m,values = self.linevalues(parameters,self.ohya)
+        ax.loglog(m,values,color='blue',linewidth=4,label='Ohya')
+        ax.fill_between(m,values,2,color='blue',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.skylab)
+        ax.loglog(m,values,color='lightblue',linewidth=4,label='Skylab')
+        ax.fill_between(m,values,2,color='lightblue',alpha=alph)
+
+        m,values = self.linevalues(parameters,self.mica)
+        ax.loglog(m,values,color='darkblue',linewidth=4,label='mica')
+        ax.fill_between(m,values,2,color='darkblue',alpha=alph)
+           
+        m,values = self.linevalues(parameters,self.xenon)
+        ax.loglog(m,values,color='green',linewidth=4,label='Xenon100')
+        ax.fill_between(m,values,2,color='green',alpha=alph)
+
+        m,values = self.linevalues(parameters,self.deap)
+        ax.loglog(m,values,color='darkgreen',linewidth=4,label='DEAP3600')
+        ax.fill_between(m,values,2,color='darkgreen',alpha=alph)
+
+        # m,values = self.linevalues(parameters,self.SN)
+        # ax.loglog(m,values,color='black',linewidth=4,label='Supernovae')
+        # ax.fill_between(m,values,2,color='black',alpha=alph)
+
+        m,values = self.linevalues(parameters,self.WD)
+        ax.loglog(m,values,color='grey',linewidth=4,label='WD1CO')
+        ax.fill_between(m,values,2,color='grey',alpha=alph)
+
+        m,values = self.linevalues(parameters,self.HSC)
+        ax.loglog(m,values,color='teal',linewidth=4,label='HSC')
+        ax.fill_between(m,values,2,color='teal',alpha=alph)
+
+        ax.set_xlim(1e0,1e50)
+        
+    #basic plotting function to produce a plot with m-f_dm axes
+    def plot_contour(self):
+        xlab = r'Dark matter mass $[\mathrm{GeV}/c^2]$'
+        ylab = r'$f_{\mathrm{DM}}$'
+        ##modify self.cross_section_func and set parameters here
+        parameters = [1]
+        fig,ax=self.MySquarePlot(xlab,ylab)
+        self.fplot(parameters,ax)
+        self.UpperAxis_grams(ax)
+        self.UpperAxis_Msun(ax,mfact=1.1e-3)
+        
+        #zac TODO: automatically filter out labels which aren't visible 
+        ax.legend(fontsize=20,loc='lower right')
+    
+    #3 vertical plots, as used in paper for density example
+    def plot_contour_3(self):
+        xlab = r'Dark matter mass $[\mathrm{GeV}/c^2]$'
+        ylab = r'$f_{\mathrm{DM}}$'
+        dlist = [[1e1],[1e7],[1e14]] #g cm^-3
+        fig,ax=self.MyVertPlots(xlab,ylab,size_y=14,number=len(dlist))
+        for i,d in enumerate(dlist):
+            self.fplot(d,ax[i])
+            density=d[0]
+            ax[i].text(1e35,5e-10,r'$\rho_{\chi}=$ '+f"{density:.0E}"+' g/cm$^3$',fontsize=24,color='black')
+            #formatting tricks to get minor ticks displaying:
+            ax[i].yaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
+            ax[i].xaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
+            ax[i].yaxis.set_minor_formatter(ticker.NullFormatter())
+            ax[i].xaxis.set_minor_formatter(ticker.NullFormatter())
+            ax[i].xaxis.set_major_locator(ticker.FixedLocator(np.logspace(0,50,11)))
+        self.UpperAxis_grams(ax[0])
+        self.UpperAxis_Msun(ax[0],mfact=.8e-2)
+        ax[0].legend(fontsize=20,loc='center left', bbox_to_anchor=(1, 0.2))
+
+    ################ extended mass functions ##########################################
+
+    #define EMF here, where params is a list
+    def psi(self,m,params):
+        
+        #lognormal example:
+        mc,zeta = params[0],params[1]
+        out = (np.sqrt(2*np.pi)*zeta*m)**(-1) * np.exp((-np.log10(m/mc)**2)/(2*(zeta**2)))
+        
+        return out
+        
+    #integrate contour for individual constraint
+    def contour_constraint(self,constraint,sigma_params,EMF_params):
+        m,values = self.linevalues(sigma_params,constraint,smoothing=1)
+        psiarr = self.psi(m,EMF_params)
+        integrand = psiarr/values
+        res = integrate.trapezoid(integrand,x=m)
+        return res**2
+    
+    #compute constraint on f_psi,dm for EMF
+    def fpsidm(self,sigma_params,EMF_params):
+        total=0
+        for i,constraint in enumerate(self.clist):
+            total+=self.contour_constraint(constraint, sigma_params, EMF_params)
+        return total**(-1/2)
+    
+    #plot lognormal example. nested loops are slow!
+    def plot_EMF(self,loop=0):
+        xlab = r'Peak mass $m_c[\mathrm{GeV}/c^2]$'
+        ylab = r'Width $\zeta$'
+        fig,ax=self.MyVertPlots(xlab,ylab,size_y=14,number=3)
+        
+        #basic density for mass relation:
+        sigma_params=[[1],[1e7],[1e14]] #g cm^-3
+        #lognormal parameters:
+        mc = np.logspace(10,40,10*2)
+        zeta = np.logspace(-1,1,9*2)
+        EMF_values = np.zeros((3,len(zeta),len(mc)))
+        
+        if loop==0:
+            for i in range(3):
+                for j,m in enumerate(mc):
+                    print(j)
+                    for k,z in enumerate(zeta):
+                        EMF_values[i,k,j]=self.fpsidm(sigma_params[i],[m,z])
+                #save array so it doesn't have to do this loop every time
+                np.save('EMF_values.npy',EMF_values)
+        if loop==1:
+            EMF_values=np.load('EMF_values.npy')
+            
+        cmap = plt.get_cmap('magma').copy()
+        color=(0,0,0,0)
+        cmap.set_over(color)
+        cmap.set_under(color)
+
+        for i in range(3):
+            plot = ax[i].pcolormesh(mc,zeta,EMF_values[i,:,:],cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=np.min(EMF_values)))
+            ylabels=ax[i].get_yticklabels()
+            ylabels[-1].set_visible(False)
+            ax[i].yaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
+            ax[i].xaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
+            ax[i].yaxis.set_minor_formatter(ticker.NullFormatter())
+            ax[i].xaxis.set_minor_formatter(ticker.NullFormatter())
+            ax[i].set_yscale('log')
+            ax[i].set_xscale('log')
+            ax[i].set_xlim([mc[0],mc[-1]])
+
+            # ax[i].xaxis.set_major_locator(ticker.FixedLocator(np.logspace(10,40,11)))
+
+        fig.colorbar(plot, ax=ax,label=r'$f_{\psi,\mathrm{DM}}$')
+        self.UpperAxis_grams(ax[0])
+        self.UpperAxis_Msun(ax[0])
+        
+        
+    
+    ############### individual constraints ################################
+    #data for individual constraints is called by these functions. 
+    #getting the m and sig arrays correct for each is crucial
 
     def resize(self,m,sig,mask):
         mask[mask == 0] = 99
@@ -331,191 +577,9 @@ class macro:
             return mask2
         elif out==1:
             return m,sig,mask      
-
-
-    def all_constraints(self,lines=0,text=0): #call everything
-    
-        fig,ax = self.plotting()
-        self.densities(ax)
-        
-        #Direct detection region, for constraints not converted to f_DM yet
-        dd = np.load('macro_constraints/DD.npy')
-        ax.fill(dd[:,0],dd[:,1],color='lightgrey')
-        
-        
-        #load files
-        ast = self.asteroid()
-        sat = self.saturn()
-        sky = self.skylab()
-        ohya = self.ohya()
-        fire = self.fireballs()
-        sn = self.SN()
-        wd = self.WD()
-        mica = self.mica()
-        xenon = self.xenon()
-        deap = self.deap()
-        gas = self.gas()
-        hsc = self.HSC()
-
-        alist = [ast,sat,sky,ohya,fire,sn,wd,mica,xenon,deap,gas,hsc]
-
-        allconstraints = np.min(alist, axis=0)
-            
-        cmap = plt.get_cmap('viridis').copy()
-        color=(0,0,0,0)
-        cmap.set_over(color)
-        cmap.set_under(color)
-
-        plot = ax.pcolormesh(self.marray,self.sarray,allconstraints,cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=1e-22))
-        fig.colorbar(plot, ax=ax,label=r'$f_{\mathrm{DM}}$')
-        ax.contourf(self.marray,self.sarray,gas,cmap='Greys',levels=[1e-50,.9e-21])
-
-
-        if lines==0:
-            style = 'dashed'
-        # lines around constraints
-            ax.contour(self.marray,self.sarray,ast,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,sat,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,sky,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,ohya,levels=[1],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,fire,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,sn,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,wd,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,mica,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,xenon,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,deap,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,gas,levels=[2],linewidths=3,linestyles=style,colors='black')
-            ax.contour(self.marray,self.sarray,hsc,levels=[2],linewidths=3,linestyles=style,colors='black')
-
-        if text==0:
-            ax.text(1e25,1e6,r'Asteroids',fontsize=24,rotation=28)
-            ax.text(1e15,1e-1,r'Saturn',fontsize=24,rotation=28)
-            ax.text(1e7,2e-15,r'Skylab',fontsize=24,rotation=40)
-            ax.text(7e18,2e-21,r'Ohya',fontsize=24,rotation=0)
-            ax.text(1e26,1e-6,r'Fireballs',fontsize=24,rotation=0)
-            ax.text(1e36,1e-6,r'Supernovae',fontsize=24,rotation=0)
-            ax.text(1e39,1e-3,r'1CO',fontsize=24,rotation=0)
-            ax.text(1e27,1e-16,r'Mica',fontsize=24,rotation=0)
-            ax.text(1e3,1e-39,r'Xenon1T',fontsize=24,rotation=36)
-            ax.text(2e16,5e-26,r'DEAP3600',fontsize=24,rotation=0)
-            ax.text(1e6,.5e2,'Gas clouds',fontsize=24,rotation=36)
-            ax.text(3e47,3e8,'HSC',fontsize=24,rotation=90)
-
-        #sub- black hole density region
-        m = np.array([1e2,1e50])
-        GeV_2_g = 1/5.62e23 
-        sigma_BH = np.pi*(100*2*6.67e-11*m*GeV_2_g*1e-3/3e8**2)**2
-        ax.plot(m,sigma_BH,color='black',alpha=1,linewidth=4)
-
-        ax.fill_between(m,sigma_BH,[self.smin,self.smin],facecolor='black',hatch='.',edgecolor='dimgrey',alpha=1,label='Black holes')
-        plt.legend(loc=4,fontsize=24,facecolor='white',frameon=True)
-
-####################fixed density bounds######################
-
-    #little function to findest closest value in array
-    def find_closest(self,arr, val):
-           idx = np.abs(arr - val).argmin()
-           return idx  
-       
-    def linevalues(self,density,constraint,smoothing=0): #g cm^{-3}
-        m,sig,f2d = constraint(out=1)
-        rho = density/self.gev2gram(1) #GeV cm^-3
-        yarr = np.pi*((3/(4*np.pi))*(m/rho))**(2/3)
-        values=np.zeros(len(yarr))
-        for i,y in enumerate(yarr):
-            yind = self.find_closest(sig,y)
-            values[i] = f2d[yind,i]
-            if values[i]>10:
-                values[i]*=(np.random.rand()+1)
-        if smoothing==0:
-            midinds = self.mids(values)
-            m = m[midinds]
-            values=values[midinds]
-        return m, values
-    
-    def mids(self,arr):
-        changes = np.concatenate(([True], arr[:-1] != arr[1:], [True]))
-        boundaries = np.where(changes)[0]
-        middle_indices = []
-        for i in range(len(boundaries) - 1):
-            start = boundaries[i]
-            end = boundaries[i + 1]
-            middle = (start + end - 1) // 2
-            middle_indices.append(middle)
-        return np.array(middle_indices)
-
-    def fplot(self,density,ax):
-
-        ax.set_ylim([1e-10,2])
-        ax.text(1e35,5e-10,r'$\rho_{\chi}=$ '+f"{density:.0E}"+' g/cm$^3$',fontsize=24,color='black')
-
-        alph=0.3
-        
-        m,values = self.linevalues(density,self.gas)
-        ax.loglog(m,values,color='purple',linewidth=4,label='Gas Clouds')
-        ax.fill_between(m,values,2,color='purple',alpha=alph)
-        
-        m,values = self.linevalues(density,self.asteroid)
-        ax.loglog(m,values,color='lightcoral',linewidth=4,label='Asteroids')
-        ax.fill_between(m,values,2,color='lightcoral',alpha=alph)
-        
-        m,values = self.linevalues(density,self.saturn)
-        ax.loglog(m,values,color='orange',linewidth=4,label='Saturn')
-        ax.fill_between(m,values,2,color='orange',alpha=alph)
-        
-        m,values = self.linevalues(density,self.fireballs)
-        ax.loglog(m,values,color='red',linewidth=4,label='Fireballs')
-        ax.fill_between(m,values,2,color='red',alpha=alph)
-
-        m,values = self.linevalues(density,self.ohya)
-        ax.loglog(m,values,color='blue',linewidth=4,label='Ohya')
-        ax.fill_between(m,values,2,color='blue',alpha=alph)
-        
-        m,values = self.linevalues(density,self.skylab)
-        ax.loglog(m,values,color='lightblue',linewidth=4,label='Skylab')
-        ax.fill_between(m,values,2,color='lightblue',alpha=alph)
-
-        m,values = self.linevalues(density,self.mica)
-        ax.loglog(m,values,color='darkblue',linewidth=4,label='mica')
-        ax.fill_between(m,values,2,color='darkblue',alpha=alph)
-           
-        m,values = self.linevalues(density,self.xenon)
-        ax.loglog(m,values,color='green',linewidth=4,label='Xenon100')
-        ax.fill_between(m,values,2,color='green',alpha=alph)
-
-        m,values = self.linevalues(density,self.deap)
-        ax.loglog(m,values,color='darkgreen',linewidth=4,label='DEAP3600')
-        ax.fill_between(m,values,2,color='darkgreen',alpha=alph)
-
-        m,values = self.linevalues(density,self.SN)
-        ax.loglog(m,values,color='black',linewidth=4,label='Supernovae')
-        ax.fill_between(m,values,2,color='black',alpha=alph)
-
-        m,values = self.linevalues(density,self.WD)
-        ax.loglog(m,values,color='grey',linewidth=4,label='WD1CO')
-        ax.fill_between(m,values,2,color='grey',alpha=alph)
-
-        m,values = self.linevalues(density,self.HSC)
-        ax.loglog(m,values,color='teal',linewidth=4,label='HSC')
-        ax.fill_between(m,values,2,color='teal',alpha=alph)
-
-        ax.set_xlim(1e0,1e50)
-    def all_densities(self):
-        xlab = r'Dark matter mass $[\mathrm{GeV}/c^2]$'
-        ylab = r'$f_{\mathrm{DM}}$'
-        dlist = [1e1,1e7,1e14]
-        fig,ax=self.MyVertPlots(xlab,ylab,size_y=14,number=len(dlist))
-        for i,d in enumerate(dlist):
-            self.fplot(d,ax[i])
-            
-        self.UpperAxis_grams(ax[0])
-        self.UpperAxis_Msun(ax[0])
-        ax[0].legend(fontsize=20,loc='center left', bbox_to_anchor=(1, 0.2))
-
-
-        
-
                 
 #%%
+#call the class:
+    
 a = macro()
 
