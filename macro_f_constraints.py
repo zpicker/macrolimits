@@ -171,7 +171,7 @@ class macro:
         return
     
     #main function for actually plotting full constraints
-    def plot_constraints(self,lines=0,text=0): #call everything
+    def plot_constraints(self,lines=True,text=True): #call everything
     
         fig,ax = self.plotting()
         self.densities(ax)
@@ -195,6 +195,7 @@ class macro:
         hsc = self.HSC()
 
         alist = [ast,sat,sky,ohya,fire,wd,mica,xenon,deap,gas,hsc]
+        
         allconstraints = np.min(alist,axis=0)            
         cmap = plt.get_cmap('viridis').copy()
         color=(0,0,0,0)
@@ -206,7 +207,7 @@ class macro:
         ax.contourf(self.marray,self.sarray,gas,cmap='Greys',levels=[1e-50,.9e-21])
 
         ### lines around constraints:
-        if lines==0:
+        if lines:
             style = 'dotted'
             ax.contour(self.marray,self.sarray,ast,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,sat,levels=[2],linewidths=3,linestyles=style,colors='black')
@@ -222,7 +223,7 @@ class macro:
             ax.contour(self.marray,self.sarray,hsc,levels=[2],linewidths=3,linestyles=style,colors='black')
 
         ### text labels on constraints:
-        if text==0:
+        if text:
             ax.text(1e25,1e6,r'Asteroids',fontsize=24,rotation=28)
             ax.text(1e15,1e-1,r'Saturn',fontsize=24,rotation=28)
             ax.text(1e7,2e-15,r'Skylab',fontsize=24,rotation=40)
@@ -265,7 +266,7 @@ class macro:
        
     #returns f values along the contour
     def linevalues(self,parameters,constraint,smoothing=True): #g cm^{-3}
-        m,sig,f2d = constraint(out=1)
+        m,sig,f2d = constraint(original=True)
         yarr = self.cross_section_func(m,parameters)
         values=np.zeros(len(yarr))
         for i,y in enumerate(yarr):
@@ -398,12 +399,15 @@ class macro:
         # out2 = (1-f12)*(np.sqrt(2*np.pi)*zeta*m)**(-1) * np.exp((-np.log(m/m2)**2)/(2*(zeta**2)))
         # out = out1+out2
         
-        ###Press-schechter exampel:
+        ###Press-schechter example:
         ms,mlow = params[0],params[1]
         marr = np.logspace(np.log10(mlow),np.log10(1000*ms),100)
+        ##to normalize it:
         outa = (np.sqrt(np.pi)*marr)**(-1) *(marr/ms)**(1/2) *np.exp(-marr/ms)*np.heaviside(marr-mlow,1)
         factor = integrate.trapezoid(outa,x=marr)
+        
         out = (np.sqrt(np.pi)*m)**(-1) *(m/ms)**(1/2) *np.exp(-m/ms)*np.heaviside(m-mlow,1)*np.heaviside(m-mlow,1)/factor
+        
         return out
         
     #integrate contour for individual constraint
@@ -521,79 +525,79 @@ class macro:
         out = 10**func(np.log10(self.sarray),np.log10(self.marray))
         return out
 
-    def asteroid(self,out=0):
+    def asteroid(self,original=False):
         m = np.logspace(24,40,1000)
         sig = np.logspace(-4,12,999)
         mask = np.load('macro_constraints/asteroid.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
         
-    def saturn(self,out=0):
+    def saturn(self,original=False):
         m = np.logspace(12,30,1000)
         sig = np.logspace(-12,6,999)
         mask = np.load('macro_constraints/saturn.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
     
-    def skylab(self,out=0):
+    def skylab(self,original=False):
         m = np.load('macro_constraints/skylab_masses.npy')
         sig = np.load('macro_constraints/skylab_sigmas.npy')
         mask = np.load('macro_constraints/skylab_logFraction.npy')
         mask2 = self.resize(m,sig,10**mask.T)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,10**mask.T
     
-    def ohya(self,out=0):
+    def ohya(self,original=False):
         m = np.load('macro_constraints/ohya_masses.npy')
         sig = np.load('macro_constraints/ohya_sigmas.npy')
         mask = np.load('macro_constraints/ohya_logFraction.npy')
         mask2 = self.resize(m,sig,10**mask.T)
-        if out==0:  
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,10**mask.T
     
-    def SN(self,out=0):
+    def SN(self,original=False):
         sig = np.flip(np.logspace(6,-3,101)**2*np.pi)
         m = np.logspace(1,25,101)/self.gev2gram(1)
         mask = np.flip(np.load('macro_constraints/SN.npy'),axis=0).real
         mask[mask==0]=99
         mask2 = self.resize(m,sig,mask)
-        if out==0:  
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
         
-    def WD(self,out=0):
+    def WD(self,original=False):
         sig = np.flip(np.logspace(4,-2.5,101)**2*np.pi)
         m = np.logspace(2,21,101)/self.gev2gram(1)
         mask = np.flip(np.load('macro_constraints/WD1CO.npy'),axis=0).real
         mask[mask==0]=99
         mask2 = self.resize(m,sig,mask)
-        if out==0:  
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
     
-    def fireballs(self,out=0):
+    def fireballs(self,original=False):
         m = np.logspace(24,31,1000)
         sig = np.logspace(-6,4,999)
         mask = np.load('macro_constraints/fireballs.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
         
-    def mica(self,out=0):
+    def mica(self,original=False):
         data = np.load('macro_constraints/mica.npz')
         m = 10**data['log_masses']
         sig = 10**data['log_sigmas']
@@ -603,50 +607,50 @@ class macro:
         mask[mask>1]=99
         mask[-1,:]=99
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
         
-    def xenon(self,out=0):
+    def xenon(self,original=False):
         m = np.logspace(0,16,1000)
         sig = np.logspace(-40,-22,999)
         mask = np.load('macro_constraints/xenon.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
         
-    def deap(self,out=0):
+    def deap(self,original=False):
         m = np.logspace(6,20,1000)
         sig = np.logspace(-24,-17,999)
         mask = np.load('macro_constraints/deap.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
+        else:
             return m,sig,mask
         
-    def gas(self,out=0):
+    def gas(self,original=False):
         m = np.logspace(-6,51,1000)
         sig = np.logspace(-28,30,999)
         mask = np.load('macro_constraints/gas.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
-            return m,sig,mask        
+        else:
+            return m,sig,mask      
         
-    def HSC(self,out=0):
+    def HSC(self,original=False):
         m = np.logspace(45,55,100)
         sig = np.logspace(-9,22,99)
         mask = np.load('macro_constraints/HSC26.npy')
         mask2 = self.resize(m,sig,mask)
-        if out==0:
+        if not original:
             return mask2
-        elif out==1:
-            return m,sig,mask      
+        else:
+            return m,sig,mask    
                 
 #%%
 #call the class:
