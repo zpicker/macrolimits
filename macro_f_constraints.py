@@ -105,6 +105,21 @@ class macro:
          if Grid:
              ax.grid()
          return fig,ax
+     
+    def MyHorPlots(self,xlab='',ylab='',title='',\
+                      lw=2.5,lfs=35,tfs=25,size_x=30,size_y=12,Grid=False,number=2):
+         plt.style.use('sty.mplstyle')
+         fig = plt.figure(figsize=(size_x,size_y))
+         gs = fig.add_gridspec(1,number,wspace=0)
+         ax = gs.subplots(sharex=True, sharey=True)
+         ax[0].set_ylabel(ylab,fontsize=lfs,labelpad=15)
+         for i in np.arange(number):
+             ax[i].set_xlabel(xlab,fontsize=lfs,labelpad=15)
+             ax[i].tick_params(which='major',direction='in',width=2,length=13,right=True,top=True,pad=12)
+             ax[i].tick_params(which='minor',direction='in',width=1,length=10,right=True,top=True)
+         if Grid:
+             ax.grid()
+         return fig,ax
 
     #plots density bands on final figure
     def densities(self,ax):
@@ -154,7 +169,7 @@ class macro:
         ax2.set_xlim([m_min*GeV_2_g,m_max*GeV_2_g])
         plt.sca(ax)
         return
-
+    
     #main function for actually plotting full constraints
     def plot_constraints(self,lines=0,text=0): #call everything
     
@@ -245,11 +260,11 @@ class macro:
         density = parameters[0]
         rho = density/self.gev2gram(1) #GeV cm^-3
         sigma_out = np.pi*((3/(4*np.pi))*(marray/rho))**(2/3)
-
+        
         return sigma_out
        
     #returns f values along the contour
-    def linevalues(self,parameters,constraint,smoothing=0): #g cm^{-3}
+    def linevalues(self,parameters,constraint,smoothing=True): #g cm^{-3}
         m,sig,f2d = constraint(out=1)
         yarr = self.cross_section_func(m,parameters)
         values=np.zeros(len(yarr))
@@ -258,7 +273,7 @@ class macro:
             values[i] = f2d[yind,i]
             if values[i]>10:
                 values[i]*=(np.random.rand()+1)*1e10
-        if smoothing==0:
+        if smoothing:
             midinds = self.mids(values)
             m = m[midinds]
             values=values[midinds]
@@ -368,18 +383,32 @@ class macro:
 
     ################ extended mass functions ##########################################
 
-    #define EMF here, where params is a list
+    #define EMF here, where params is a list. if normalize==True, the function is automatically normalized
     def psi(self,m,params):
         
-        #lognormal example:
-        mc,zeta = params[0],params[1]
-        out = (np.sqrt(2*np.pi)*zeta*m)**(-1) * np.exp((-np.log10(m/mc)**2)/(2*(zeta**2)))
+        ###lognormal example:
+        # mc,zeta = params[0],params[1]
+        # out = (np.sqrt(2*np.pi)*zeta*m)**(-1) * np.exp((-np.log(m/mc)**2)/(2*(zeta**2)))
         
+        ###bimodal example:
+        # m1,m2,f12 = params[0],params[1],params[2]
+        # #narrow lognormal approximation for each
+        # zeta = 0.1
+        # out1 = f12*(np.sqrt(2*np.pi)*zeta*m)**(-1) * np.exp((-np.log(m/m1)**2)/(2*(zeta**2)))
+        # out2 = (1-f12)*(np.sqrt(2*np.pi)*zeta*m)**(-1) * np.exp((-np.log(m/m2)**2)/(2*(zeta**2)))
+        # out = out1+out2
+        
+        ###Press-schechter exampel:
+        ms,mlow = params[0],params[1]
+        marr = np.logspace(np.log10(mlow),np.log10(1000*ms),100)
+        outa = (np.sqrt(np.pi)*marr)**(-1) *(marr/ms)**(1/2) *np.exp(-marr/ms)*np.heaviside(marr-mlow,1)
+        factor = integrate.trapezoid(outa,x=marr)
+        out = (np.sqrt(np.pi)*m)**(-1) *(m/ms)**(1/2) *np.exp(-m/ms)*np.heaviside(m-mlow,1)*np.heaviside(m-mlow,1)/factor
         return out
         
     #integrate contour for individual constraint
     def contour_constraint(self,constraint,sigma_params,EMF_params):
-        m,values = self.linevalues(sigma_params,constraint,smoothing=1)
+        m,values = self.linevalues(sigma_params,constraint,smoothing=False)
         psiarr = self.psi(m,EMF_params)
         integrand = psiarr/values
         res = integrate.trapezoid(integrand,x=m)
@@ -390,57 +419,98 @@ class macro:
         total=0
         for i,constraint in enumerate(self.clist):
             total+=self.contour_constraint(constraint, sigma_params, EMF_params)
-        return total**(-1/2)
+        if total == 0:
+            return 99999
+        else:
+            return total**(-1/2)
     
-    #plot lognormal example. nested loops are slow!
-    def plot_EMF(self,loop=0):
-        xlab = r'Peak mass $m_c[\mathrm{GeV}/c^2]$'
-        ylab = r'Width $\zeta$'
-        fig,ax=self.MyVertPlots(xlab,ylab,size_y=14,number=3)
+    #ploting examples in paper. nested loops are slow!
+    def plot_EMF(self,loop=True):
+        # xlab = r'Peak mass $m_c[\mathrm{GeV}/c^2]$'
+        # ylab = r'Width $\zeta$'
+        xlab = r'$m_*[\mathrm{GeV}/c^2]$'
+        ylab = r'$m_{\rm low}[\mathrm{GeV}/c^2]$'
+        # fig,ax=self.MyVertPlots(xlab,ylab,size_y=14,number=3)
+        fig,ax=self.MyHorPlots(xlab,ylab,size_y=10,number=3)
+
         
-        #basic density for mass relation:
-        sigma_params=[[1],[1e7],[1e14]] #g cm^-3
-        #lognormal parameters:
+        ###basic density for mass relation:
+        sigma_params=[[1.0],[1.0e7],[1.0e14]] #g cm^-3
+        
+        ###lognormal parameters:
         mc = np.logspace(10,40,10*2)
         zeta = np.logspace(-1,1,9*2)
-        EMF_values = np.zeros((3,len(zeta),len(mc)))
+        ###bimodal parameters:
+        m1 = np.logspace(0,50,10*2)
+        m2 = np.logspace(0,50,10*2)
+        f12 = 0.5
+        ###Press-schechter parameters:
+        ms = np.logspace(1,45,10*2)
+        mlow = np.logspace(1,45,10*2)
         
-        if loop==0:
+        EMF_values = np.zeros((3,len(mlow),len(ms)))
+             
+        if loop:
             for i in range(3):
-                for j,m in enumerate(mc):
+                # for j,m in enumerate(mc):
+                # for j,ma in enumerate(m1):
+                for j,m in enumerate(ms):
                     print(j)
-                    for k,z in enumerate(zeta):
-                        EMF_values[i,k,j]=self.fpsidm(sigma_params[i],[m,z])
+                    # for k,z in enumerate(zeta):
+                    # for k,mb in enumerate(m2):
+                    for k,ml in enumerate(mlow):
+                        ###lognormal:
+                        # EMF_values[i,k,j]=self.fpsidm(sigma_params[i],[m,z])
+                        ###bimodal:
+                        # EMF_values[i,k,j]=self.fpsidm(sigma_params[i],[ma,mb,f12])  
+                        ###PS
+                        if m>ml:
+                            EMF_values[i,k,j]=self.fpsidm(sigma_params[i],[m,ml])
+                        else:
+                            EMF_values[i,k,j]=np.nan
+
+                        
                 #save array so it doesn't have to do this loop every time
-                np.save('EMF_values.npy',EMF_values)
-        if loop==1:
-            EMF_values=np.load('EMF_values.npy')
+                
+                np.save('EMF_values_ps.npy',EMF_values)
+        else:
+            EMF_values=np.load('EMF_values_ps.npy')
             
         cmap = plt.get_cmap('magma').copy()
         color=(0,0,0,0)
         cmap.set_over(color)
         cmap.set_under(color)
+        cmap.set_bad(color='grey')
 
         for i in range(3):
-            plot = ax[i].pcolormesh(mc,zeta,EMF_values[i,:,:],cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=np.min(EMF_values)))
+            # plot = ax[i].pcolormesh(mc,zeta,EMF_values[i,:,:],cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=np.min(EMF_values)))
+            plot = ax[i].pcolormesh(ms,mlow,EMF_values[i,:,:],cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=np.nanmin(EMF_values)))
+
             ylabels=ax[i].get_yticklabels()
-            ylabels[-1].set_visible(False)
+            # ylabels[-1].set_visible(False)
             ax[i].yaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
             ax[i].xaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
             ax[i].yaxis.set_minor_formatter(ticker.NullFormatter())
             ax[i].xaxis.set_minor_formatter(ticker.NullFormatter())
             ax[i].set_yscale('log')
             ax[i].set_xscale('log')
-            ax[i].set_xlim([mc[0],mc[-1]])
+            # ax[i].set_xlim([mc[0],mc[-1]])
+            ax[i].set_xlim([1e0,1e50])
+            ax[i].set_ylim([1e0,1e50])
+            density=sigma_params[i][0]
+            ax[i].text(1e22,1e2,r'$\rho_{\chi}=$ '+f"{density:.1}"+' g/cm$^3$',bbox=dict(facecolor='white',alpha=0.9))
+
 
             # ax[i].xaxis.set_major_locator(ticker.FixedLocator(np.logspace(10,40,11)))
 
-        fig.colorbar(plot, ax=ax,label=r'$f_{\psi,\mathrm{DM}}$')
-        self.UpperAxis_grams(ax[0])
-        self.UpperAxis_Msun(ax[0])
+        fig.colorbar(plot, ax=ax,label=r'$f_{\psi,\mathrm{DM}}$',pad=3e-2)
+        # self.UpperAxis_grams(ax[0])
+        # self.UpperAxis_Msun(ax[0])
         
         
-    
+        
+        
+        
     ############### individual constraints ################################
     #data for individual constraints is called by these functions. 
     #getting the m and sig arrays correct for each is crucial
