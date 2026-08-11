@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+authors:
+  - family-names: "Picker"
+    given-names: "Zachary S. C."
+    orcid: "https://orcid.org/0000-0002-3775-8283"
+title: "Macroscopic Dark Matter Limits"
+version: 1.0.0
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.1234
+date-released: 2026-xx-xx
+url: "https://github.com/zpicker/macrolimits"
