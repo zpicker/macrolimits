@@ -11,3 +11,14 @@ identifiers:
     value: 10.5281/zenodo.21892126
 date-released: 2026-08-11
 url: "https://github.com/zpicker/macrolimits"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Picker"
+      given-names: "Zachary S. C."
+      orcid: "https://orcid.org"
+  title: "Macroscopic Dark Matter Limits"
+  year: 2026
+  doi: "10.5281/zenodo.21892126"
+  journal: "Zenodo"
+  publisher: "Zenodo"
