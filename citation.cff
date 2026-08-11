@@ -7,6 +7,6 @@ title: "Macroscopic Dark Matter Limits"
 version: 1.0.0
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.1234
-date-released: 2026-xx-xx
+    value: 10.5281/zenodo.21892126
+date-released: 2026-08-11
 url: "https://github.com/zpicker/macrolimits"
