@@ -3,7 +3,7 @@ Macroscopic dark matter limits
 
 If you use something here, you can give credit by citing arxiv.org/abs/26xx.xxxxx alongside the zenodo DOI attached to this repository:
 ```
-@misc{AxionLimits,
+@misc{macrolimits,
   author       = {Zachary S. C. Picker},
   title        = {zpicker/macrolimits: Macroscopic Dark Matter Limits},
   month        = aug,
