@@ -28,7 +28,7 @@ class macro:
         self.sarray = np.logspace(np.log10(self.smin),np.log10(self.smax),self.ress)
         self.clist = [self.asteroid,self.saturn,self.skylab,self.ohya,
                       self.fireballs,self.WD,self.mica,self.xenon,
-                      self.deap,self.gas,self.HSC]
+                      self.deap,self.gas,self.HSC,self.cdms,self.chicago,self.dama]
         
     def gev2gram(self,m):
         return m*1.78e-24
@@ -48,16 +48,20 @@ class macro:
         ax.set_ylim([self.smin,self.smax])
         ax.set_xlabel('Dark matter mass [GeV/$c^2$]')
         ax.set_ylabel(r'Geometric cross section [cm$^{2}$]')
-        ax.yaxis.set_major_locator(ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
+        ax.yaxis.set_major_locator(ticker.LogLocator(base=1e5,subs=(1.0,),numticks=100))
         ax.yaxis.set_minor_locator(ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
         ax.yaxis.set_minor_formatter(ticker.NullFormatter())
-        ax.xaxis.set_major_locator(ticker.LogLocator(base=1000,subs=(1.0,),numticks=100))
+        ax.xaxis.set_major_locator(ticker.LogLocator(base=1e5,subs=(1.0,),numticks=100))
         ax.xaxis.set_minor_locator(ticker.LogLocator(base=10,subs=(1.0,),numticks=100))
         ax.xaxis.set_minor_formatter(ticker.NullFormatter())
         # ax.axvline(1.22e19,color='gray',linestyle='-',zorder=-100,lw=2)
         # ax.text(1.22e19*1.05,1e-28,r'$M_{\rm Pl}$',fontsize=20,ha='left',va='center',color='gray')
         self.UpperAxis_grams(ax)
         self.UpperAxis_Msun(ax)
+        
+        # locmaj_x = ticker.LogLocator(base=10.0, subs=(1.0,), numticks=100)
+        # ax.xaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0]))
+        # ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0]))
         
         #earth interactions
         km2pc=3.24078e-14
@@ -68,8 +72,8 @@ class macro:
         g2GeV = 1/(1.8e-24)
         Rate_array = np.array([1,1/3.15e7,1e-9/3.15e7]) #s^-1
         m_array = rho_dm*np.pi*(r_earth**2)*v_dm*(km2pc**3)*msun*g2GeV/Rate_array #GeV
-        plt.vlines(m_array,self.smin*1000,self.smin,colors=['black','black','black','white'],linestyles='solid',linewidth=2,alpha=1)
         ###### uncomment for ticks on bottom axes indicating the rate of collisions with earth
+        # plt.vlines(m_array,self.smin*1000,self.smin,colors=['black','black','black','white'],linestyles='solid',linewidth=2,alpha=1)
         # plt.text(2*m_array[0],self.smin*5,r'1/s',rotation=0)
         # plt.text(2*m_array[1],self.smin*5,r'1/yr',rotation=0)
         # plt.text(2*m_array[2],self.smin*5,r'1/Gyr',rotation=0,color='black')  
@@ -176,25 +180,23 @@ class macro:
         fig,ax = self.plotting()
         self.densities(ax)
         
-        #Direct detection region, for constraints not converted to f_DM yet
-        dd = np.load('macro_constraints/DD.npy')
-        ax.fill(dd[:,0],dd[:,1],color='lightgrey')
-        
         #load data in
         ast = self.asteroid()
         sat = self.saturn()
         sky = self.skylab()
         ohya = self.ohya()
         fire = self.fireballs()
-        # sn = self.SN()
         wd = self.WD()
         mica = self.mica()
         xenon = self.xenon()
         deap = self.deap()
         gas = self.gas()
         hsc = self.HSC()
+        dama = self.dama()
+        chic = self.chicago()
+        cdms = self.cdms()
 
-        alist = [ast,sat,sky,ohya,fire,wd,mica,xenon,deap,gas,hsc]
+        alist = [ast,sat,sky,ohya,fire,wd,mica,xenon,deap,gas,hsc,dama,chic,cdms]
         
         allconstraints = np.min(alist,axis=0)            
         cmap = plt.get_cmap('viridis').copy()
@@ -202,9 +204,9 @@ class macro:
         cmap.set_over(color)
         cmap.set_under(color)
 
-        plot = ax.pcolormesh(self.marray,self.sarray,allconstraints,cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=1e-22))
-        fig.colorbar(plot, ax=ax,label=r'$f_{\mathrm{DM}}$')
-        ax.contourf(self.marray,self.sarray,gas,cmap='Greys',levels=[1e-50,.9e-21])
+        plot = ax.pcolormesh(self.marray,self.sarray,allconstraints,cmap=cmap,norm=colors.LogNorm(vmax=1.1,vmin=1e-13))
+        fig.colorbar(plot, ax=ax,label=r'$f_{\mathrm{DM}}$',ticks=ticker.LogLocator(base=10.0, subs=(1.0,), numticks=99))
+        ax.contourf(self.marray,self.sarray,gas,cmap='Greys',levels=[1e-50,.9e-13],alpha=0.7)
 
         ### lines around constraints:
         if lines:
@@ -214,28 +216,35 @@ class macro:
             ax.contour(self.marray,self.sarray,sky,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,ohya,levels=[1],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,fire,levels=[2],linewidths=3,linestyles=style,colors='black')
-            # ax.contour(self.marray,self.sarray,sn,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,wd,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,mica,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,xenon,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,deap,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,gas,levels=[2],linewidths=3,linestyles=style,colors='black')
             ax.contour(self.marray,self.sarray,hsc,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,dama,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,chic,levels=[2],linewidths=3,linestyles=style,colors='black')
+            ax.contour(self.marray,self.sarray,cdms,levels=[2],linewidths=3,linestyles=style,colors='black')
 
         ### text labels on constraints:
         if text:
-            ax.text(1e25,1e6,r'Asteroids',fontsize=24,rotation=28)
-            ax.text(1e15,1e-1,r'Saturn',fontsize=24,rotation=28)
+            ax.text(2e28,1e5,r'Asteroids',fontsize=24,rotation=24)
+            ax.text(1e16,7e-4,r'Saturn',fontsize=24,rotation=28)
             ax.text(1e7,2e-15,r'Skylab',fontsize=24,rotation=40)
-            ax.text(7e18,2e-21,r'Ohya',fontsize=24,rotation=0)
+            ax.text(1e12,5e-14,r'Ohya',fontsize=24,rotation=40)
             ax.text(1e26,1e-6,r'Fireballs',fontsize=24,rotation=0)
-            # ax.text(1e36,1e-6,r'Supernovae',fontsize=24,rotation=0)
-            ax.text(1e39,1e-3,r'1CO',fontsize=24,rotation=0)
+            ax.text(1e35,1e-6,r'1CO',fontsize=24,rotation=0)
             ax.text(1e27,1e-16,r'Mica',fontsize=24,rotation=0)
             ax.text(1e3,1e-39,r'Xenon1T',fontsize=24,rotation=36)
-            ax.text(2e16,5e-26,r'DEAP3600',fontsize=24,rotation=0)
-            ax.text(1e6,.5e2,'Gas clouds',fontsize=24,rotation=36)
+            ax.text(1e19,2e-21,r'DEAP3600',fontsize=24,rotation=0)
+            ax.text(1e6,5e-7,'Gas clouds',fontsize=24,rotation=36)
             ax.text(3e47,3e8,'HSC',fontsize=24,rotation=90)
+            ax.text(1e3,1e-34,r'CDMS',fontsize=24,rotation=36)
+            ax.text(2e3,3e-28,r'DAMA',fontsize=24,rotation=17)
+            ax.text(3e0,1e-25,r'Chicago',fontsize=24,rotation=40)
+
+
+
 
         #black hole density region
         m = np.array([1e2,1e50])
@@ -244,6 +253,7 @@ class macro:
         ax.plot(m,sigma_BH,color='black',alpha=1,linewidth=4)
         ax.fill_between(m,sigma_BH,[self.smin,self.smin],facecolor='black',hatch='.',edgecolor='dimgrey',alpha=1,label='Black holes')
         plt.legend(loc=4,fontsize=24,facecolor='white',frameon=True)
+    
 
     #################### contour bounds ######################
 
@@ -303,16 +313,16 @@ class macro:
         ax.fill_between(m,values,2,color='purple',alpha=alph)
         
         m,values = self.linevalues(parameters,self.asteroid)
-        ax.loglog(m,values,color='lightcoral',linewidth=4,label='Asteroids')
-        ax.fill_between(m,values,2,color='lightcoral',alpha=alph)
+        ax.loglog(m,values,color='red',linewidth=4,label='Asteroids')
+        ax.fill_between(m,values,2,color='red',alpha=alph)
         
         m,values = self.linevalues(parameters,self.saturn)
-        ax.loglog(m,values,color='orange',linewidth=4,label='Saturn')
-        ax.fill_between(m,values,2,color='orange',alpha=alph)
+        ax.loglog(m,values,color='lightcoral',linewidth=4,label='Saturn')
+        ax.fill_between(m,values,2,color='lightcoral',alpha=alph)
         
         m,values = self.linevalues(parameters,self.fireballs)
-        ax.loglog(m,values,color='red',linewidth=4,label='Fireballs')
-        ax.fill_between(m,values,2,color='red',alpha=alph)
+        ax.loglog(m,values,color='orange',linewidth=4,label='Fireballs')
+        ax.fill_between(m,values,2,color='orange',alpha=alph)
 
         m,values = self.linevalues(parameters,self.ohya)
         ax.loglog(m,values,color='blue',linewidth=4,label='Ohya')
@@ -333,18 +343,26 @@ class macro:
         m,values = self.linevalues(parameters,self.deap)
         ax.loglog(m,values,color='darkgreen',linewidth=4,label='DEAP3600')
         ax.fill_between(m,values,2,color='darkgreen',alpha=alph)
-
-        # m,values = self.linevalues(parameters,self.SN)
-        # ax.loglog(m,values,color='black',linewidth=4,label='Supernovae')
-        # ax.fill_between(m,values,2,color='black',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.dama)
+        ax.loglog(m,values,color='mediumseagreen',linewidth=4,label='DAMA')
+        ax.fill_between(m,values,2,color='mediumseagreen',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.chicago)
+        ax.loglog(m,values,color='mediumaquamarine',linewidth=4,label='Chicago')
+        ax.fill_between(m,values,2,color='mediumaquamarine',alpha=alph)
+        
+        m,values = self.linevalues(parameters,self.cdms)
+        ax.loglog(m,values,color='limegreen',linewidth=4,label='CDMS')
+        ax.fill_between(m,values,2,color='limegreen',alpha=alph)
 
         m,values = self.linevalues(parameters,self.WD)
         ax.loglog(m,values,color='grey',linewidth=4,label='WD1CO')
         ax.fill_between(m,values,2,color='grey',alpha=alph)
 
         m,values = self.linevalues(parameters,self.HSC)
-        ax.loglog(m,values,color='teal',linewidth=4,label='HSC')
-        ax.fill_between(m,values,2,color='teal',alpha=alph)
+        ax.loglog(m,values,color='black',linewidth=4,label='HSC')
+        ax.fill_between(m,values,2,color='black',alpha=alph)
 
         ax.set_xlim(1e0,1e50)
         
@@ -371,7 +389,7 @@ class macro:
         for i,d in enumerate(dlist):
             self.fplot(d,ax[i])
             density=d[0]
-            ax[i].text(1e35,5e-10,r'$\rho_{\chi}=$ '+f"{density:.0E}"+' g/cm$^3$',fontsize=24,color='black')
+            ax[i].text(2e35,1e-9,r'$\rho_{\chi}=$ '+f"{density:.0E}"+' g/cm$^3$',fontsize=24,color='black')
             #formatting tricks to get minor ticks displaying:
             ax[i].yaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
             ax[i].xaxis.set_minor_locator(ticker.LogLocator(base=10.0,numticks=100))
@@ -380,7 +398,26 @@ class macro:
             ax[i].xaxis.set_major_locator(ticker.FixedLocator(np.logspace(0,50,11)))
         self.UpperAxis_grams(ax[0])
         self.UpperAxis_Msun(ax[0],mfact=.8e-2)
-        ax[0].legend(fontsize=20,loc='center left', bbox_to_anchor=(1, 0.2))
+        # ax[0].legend(fontsize=20,loc='center left', bbox_to_anchor=(1, 0.2))
+        
+        text=True
+        if text:
+            ax[0].text(1e27,1e-3,r'Asteroids',fontsize=30,rotation=0,color='red')
+            ax[0].text(1e20,3e-6,r'Saturn',fontsize=30,rotation=25,color='lightcoral')
+            ax[0].text(1e10,1e-9,'Gas clouds',fontsize=30,rotation=32,color='purple')
+            ax[0].text(1e45,1e-3,'HSC',fontsize=30,rotation=0)
+
+            ax[1].text(1e29,1e-2,r'Fireballs',fontsize=30,rotation=0,color='orange')
+            ax[1].text(3e18,1e-3,r'Ohya',fontsize=30,rotation=62,color='blue')
+            ax[1].text(1e11,1e-7,r'Skylab',fontsize=30,rotation=60,color='teal')
+            ax[1].text(1e27,1e-5,r'1CO',fontsize=30,rotation=0,color='grey')
+
+            ax[2].text(1e33,3e-5,r'1CO',fontsize=30,rotation=40,color='grey')
+            ax[2].text(1e20,3e-8,r'Mica',fontsize=30,rotation=60,color='darkblue')
+            ax[2].text(1e9,1e-7,r'DEAP3600',fontsize=30,rotation=90,color='darkgreen')
+            # ax[2].text(1e3,1e-34,r'CDMS',fontsize=30,rotation=36,color='limegreen')
+            ax[2].text(1e13,2e-9,r'DAMA',fontsize=30,rotation=0,color='mediumseagreen')
+            ax[2].text(1e3,1e-6,r'Chicago',fontsize=30,rotation=90,color='mediumaquamarine')
 
     ################ extended mass functions ##########################################
 
@@ -564,22 +601,11 @@ class macro:
             return mask2
         else:
             return m,sig,10**mask.T
-    
-    def SN(self,original=False):
-        sig = np.flip(np.logspace(6,-3,101)**2*np.pi)
-        m = np.logspace(1,25,101)/self.gev2gram(1)
-        mask = np.flip(np.load('macro_constraints/SN.npy'),axis=0).real
-        mask[mask==0]=99
-        mask2 = self.resize(m,sig,mask)
-        if not original:
-            return mask2
-        else:
-            return m,sig,mask
         
     def WD(self,original=False):
-        sig = np.flip(np.logspace(4,-2.5,101)**2*np.pi)
-        m = np.logspace(2,21,101)/self.gev2gram(1)
-        mask = np.flip(np.load('macro_constraints/WD1CO.npy'),axis=0).real
+        sig = np.load('macro_constraints/WDsig.npy')
+        m = np.load('macro_constraints/WDm.npy')
+        mask = np.load('macro_constraints/WD1CO.npy')
         mask[mask==0]=99
         mask2 = self.resize(m,sig,mask)
         if not original:
@@ -632,6 +658,36 @@ class macro:
         else:
             return m,sig,mask
         
+    def dama(self,original=False):
+        m = np.logspace(2,17,1000)
+        sig = np.logspace(-30,-12,999)
+        mask = np.load('macro_constraints/dama.npy')
+        mask2 = self.resize(m,sig,mask)
+        if not original:
+            return mask2
+        else:
+            return m,sig,mask
+        
+    def chicago(self,original=False):
+        m = np.logspace(4,13,1000)
+        sig = np.logspace(-24,-14,999)
+        mask = np.load('macro_constraints/chicago.npy')
+        mask2 = self.resize(m,sig,mask)
+        if not original:
+            return mask2
+        else:
+            return m,sig,mask
+        
+    def cdms(self,original=False):
+        m = np.logspace(0,15,1000)
+        sig = np.logspace(-35,-21,999)
+        mask = np.load('macro_constraints/cdms.npy')
+        mask2 = self.resize(m,sig,mask)
+        if not original:
+            return mask2
+        else:
+            return m,sig,mask
+    
     def gas(self,original=False):
         m = np.logspace(-6,51,1000)
         sig = np.logspace(-28,30,999)
